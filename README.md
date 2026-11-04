@@ -79,11 +79,11 @@ Os ganhos podem ser ajustados em tempo real pelo Serial (`kp=...`, `kd=...`), se
 
 ### Motores
 
-Os motores são acionados por um gerador de pulsos próprio, executado em uma interrupção de timer de hardware a 50 kHz. Como a interrupção ocorre em intervalos fixos, independentemente das tasks do FreeRTOS, o ritmo dos motores não é afetado pelo processamento do controle ou da telemetria.
+Os pulsos dos motores são gerados por uma interrupção de timer de hardware, em vez de uma biblioteca de motor de passo. O timer é configurado para disparar a cada 20 µs (50 kHz), de forma independente das tasks do FreeRTOS, o que mantém o ritmo dos motores regular mesmo enquanto o controle calcula ou a telemetria imprime dados.
 
-A cada 5 ms, a task de controle calcula uma nova velocidade e a repassa ao gerador, que ajusta imediatamente a frequência dos pulsos enviados a cada driver. Dessa forma, a velocidade das rodas acompanha o controlador sem atrasos, e um único timer atende os dois motores ao mesmo tempo.
+A cada execução, a interrupção decide se cada motor deve receber um novo pulso usando um acumulador: a velocidade pedida é somada ao acumulador e, quando ele atinge 50 000, esse valor é subtraído e um pulso é gerado. Como isso acontece 50 000 vezes por segundo, o número de pulsos por segundo fica igual à velocidade pedida. Por exemplo, a 1000 passos/s, um pulso é gerado a cada 50 execuções, ou seja, a cada 1 ms. Quando a divisão não é exata, o resto permanece no acumulador, e a velocidade média se mantém correta.
 
-Como os motores são montados espelhados no chassi, o sentido de um deles é invertido no software para que ambos girem na mesma direção.
+A task de controle atualiza a velocidade a cada 5 ms por meio da função `motorSetSpeed()`, e a interrupção passa a usá-la imediatamente, sem precisar reconfigurar o timer. Um único timer atende os dois motores, e o sentido do motor direito é invertido no software, já que os motores são montados espelhados no chassi.
 
 ### Segurança
 
