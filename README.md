@@ -21,13 +21,15 @@ Esse repositório contém os arquivos utilizados na elaboração de um robô de 
  
 ## Mecânica
 
-![CAD do robô](media/chassi.png)
-
 A ideia era fazer com que o chassi fosse modular, de modo que fosse possível imprimir e testar o encaixe das peças sem desperdiçar tempo ou material. Todos os elementos de fixação utilizados para prender os suportes são do tipo M3. A IMU foi fixada no compartimento do topo, para maximizar a leitura das propriedades dinâmicas.
+
+Na imagem da esquerda é possível ver um suporte removível utilizado durante os testes. Ele limita a inclinação do robô, de modo que, em caso de queda, nenhum componente seja danificado.
+
+![CAD do robô](media/chassi.png)
 
 ## Elétrica
 
-A instalação elétrica seguiu o diagrama anexo 
+A instalação elétrica seguiu o diagrama anexo. O projeto inicial previa um circuito de alimentação próprio (destacado no diagrama como "Alimentação"), com um regulador de tensão LM7805 para gerar os 5 V do ESP32 a partir dos 12 V e capacitores para filtrar a tensão. Esse circuito não foi utilizado na versão final e a alimentação foi feita diretamente por uma fonte de bancada.
 
 ![Diagrama elétrico](media/diagrama_eletrico.png)
 
@@ -75,11 +77,16 @@ velocidade = velocidade + aceleracao * dt
 
 Os ganhos podem ser ajustados em tempo real pelo Serial (`kp=...`, `kd=...`), sem regravar a placa.
 
-### Motores 
+### Motores
 
-Um timer de hardware executa uma interrupção a 50 kHz (a cada 20 µs). Em cada execução, a velocidade de cada motor é somada a um acumulador. Quando o acumulador ultrapassa 50 000, esse valor é subtraído e um passo é gerado.
+Cada driver A4988 recebe dois sinais do ESP32:
 
-Exemplo: a 1000 passos/s, o acumulador ultrapassa o limite a cada 50 ticks, o que corresponde a 1 passo por milissegundo. A velocidade pode ser alterada a qualquer momento sem reconfigurar o timer, e um único timer atende os dois motores. O pino STEP retorna a nível baixo no tick seguinte, o que resulta em pulsos de 20 µs.
+- **STEP:** a cada pulso, o motor avança um passo. A velocidade do motor é definida pela frequência desses pulsos.
+- **DIR:** define o sentido de rotação (nível alto para um sentido, nível baixo para o outro).
+
+Os pulsos são gerados por uma interrupção de timer de hardware, e não pelas tasks do FreeRTOS, porque precisam de um espaçamento regular que não dependa do restante do programa. A interrupção é executada em intervalos fixos de 20 µs e, a cada execução, decide se cada motor deve receber um novo pulso. Com isso, a velocidade calculada pelo controle é convertida em uma frequência de pulsos proporcional a ela.
+
+Essa abordagem permite alterar a velocidade a qualquer instante, sem reconfigurar o timer, e um único timer atende os dois motores. Como os motores são montados espelhados no chassi, o sentido de um deles é invertido no software para que ambos girem na mesma direção.
 
 ### Segurança
 
