@@ -31,7 +31,7 @@ Na imagem da esquerda é possível ver um suporte removível utilizado durante o
 
 A instalação elétrica seguiu o diagrama anexo. O projeto inicial previa um circuito de alimentação próprio (destacado no diagrama como "Alimentação"), com um regulador de tensão LM7805 para gerar os 5 V do ESP32 a partir dos 12 V e capacitores para filtrar a tensão. Esse circuito não foi utilizado na versão final e a alimentação foi feita diretamente por uma fonte de bancada.
 
-![Diagrama elétrico](media/diagrama_eletrico.png)
+![Diagrama elétrico](media/diagrama_eletrico.jpg)
 
 
 ## Software
@@ -79,14 +79,11 @@ Os ganhos podem ser ajustados em tempo real pelo Serial (`kp=...`, `kd=...`), se
 
 ### Motores
 
-Cada driver A4988 recebe dois sinais do ESP32:
+Os motores são acionados por um gerador de pulsos próprio, executado em uma interrupção de timer de hardware a 50 kHz. Como a interrupção ocorre em intervalos fixos, independentemente das tasks do FreeRTOS, o ritmo dos motores não é afetado pelo processamento do controle ou da telemetria.
 
-- **STEP:** a cada pulso, o motor avança um passo. A velocidade do motor é definida pela frequência desses pulsos.
-- **DIR:** define o sentido de rotação (nível alto para um sentido, nível baixo para o outro).
+A cada 5 ms, a task de controle calcula uma nova velocidade e a repassa ao gerador, que ajusta imediatamente a frequência dos pulsos enviados a cada driver. Dessa forma, a velocidade das rodas acompanha o controlador sem atrasos, e um único timer atende os dois motores ao mesmo tempo.
 
-Os pulsos são gerados por uma interrupção de timer de hardware, e não pelas tasks do FreeRTOS, porque precisam de um espaçamento regular que não dependa do restante do programa. A interrupção é executada em intervalos fixos de 20 µs e, a cada execução, decide se cada motor deve receber um novo pulso. Com isso, a velocidade calculada pelo controle é convertida em uma frequência de pulsos proporcional a ela.
-
-Essa abordagem permite alterar a velocidade a qualquer instante, sem reconfigurar o timer, e um único timer atende os dois motores. Como os motores são montados espelhados no chassi, o sentido de um deles é invertido no software para que ambos girem na mesma direção.
+Como os motores são montados espelhados no chassi, o sentido de um deles é invertido no software para que ambos girem na mesma direção.
 
 ### Segurança
 
